@@ -1,16 +1,48 @@
+# ======================================================================
+# Import Packages
+# ======================================================================
+
 import pandas as pd
+import sqlalchemy
+import pyodbc
+
+# ======================================================================
+# Define Constants
+# ======================================================================
 
 books_input_file_path = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library Systembook.csv'
 customers_input_file_path  = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library SystemCustomers.csv'
 books_output_file_path = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\books_cleaned"
 customers_output_file_path  = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\customers_cleaned"
 
+sql_server = "STUDENT02"
+
+# ======================================================================
+# Define Functions
+# ======================================================================
+
 def load_csv(file_path):
+    """Loads csv into dataframe
+    Args:
+        file_path: File path of csv to load
+
+    Returns: 
+        df: Dataframe from csv data
+    """
     df = pd.read_csv(file_path)
     return df
 
 def clean_df(df, string_cols, date_cols):
-    df_cleaned = df.dropna()
+    """Cleans dataframe, including null rows, filed names, string and date cleaning
+    Args:
+        df: Dataframe to clean
+        string_cols: List of columns to apply string cleaning to
+        date_cols: List of columns to apply date cleaning to 
+
+    Returns: 
+        df_cleaned: Dataframe with cleaning applied
+    """
+    df_cleaned = df.dropna(how='all')
     df_cleaned.columns = df_cleaned.columns.str.title()
     for col in string_cols:
         df_cleaned[col] = df_cleaned[col].str.title()
@@ -22,15 +54,60 @@ def clean_df(df, string_cols, date_cols):
 
 
 def clean_customer_data(customer_df):
-    df_cleaned = clean_df(customer_df,["Customer Name"],[])
-    return df_cleaned
+    """Cleans customer dataframe
+    Args:
+        customer_df: Customer dataframe to clean
+
+    Returns: 
+        customer_cleaned_df: Customer dataframe with cleaning applied
+    """
+    customer_cleaned_df = clean_df(customer_df,["Customer Name"],[])
+    return customer_cleaned_df
 
 
 def clean_books_data(books_df):
-    df_cleaned = clean_df(books_df,["Books"],["Book Checkout", "Book Returned"])
-    df_cleaned["Days Allowed To Borrow"] = df_cleaned["Days Allowed To Borrow"].str.replace('weeks','')
-    df_cleaned["Days Allowed To Borrow"] = df_cleaned["Days Allowed To Borrow"].astype(int)*7
-    return df_cleaned
+    """Cleans books dataframe
+    Args:
+        books_df: Books dataframe to clean
+
+    Returns: 
+        books_cleaned_df: Books dataframe with cleaning applied
+    """
+    books_cleaned_df = clean_df(books_df,["Books"],["Book Checkout", "Book Returned"])
+    books_cleaned_df["Days Allowed To Borrow"] = books_cleaned_df["Days Allowed To Borrow"].str.replace('weeks','')
+    books_cleaned_df["Days Allowed To Borrow"] = books_cleaned_df["Days Allowed To Borrow"].astype(int)*7
+    return books_cleaned_df
+
+def enrich_books_data(books_df):
+    """ Creates a new col to work out the "Time on loan". ie the difference between the date checked out and date checked in.
+    Args:
+        books_df: Book dataframe to enrich
+
+    Returns: 
+        books_enriched: Book dataframe with added "Time on loan" column
+    """
+    books_enriched = books_df.copy()
+    books_enriched["Time On Loan"] = books_enriched["Book Returned"] - books_enriched["Book Checkout"]
+    return books_enriched
+
+
+def write_to_sql(df, server, database, table_name):
+    """ Writes a dataframe to SQL Server table
+    Args:
+        df: Dataframe to write to table
+        server: SQL server location to write to
+        database: Database to write to
+        table_name: Table name to write to
+    """
+    connection_string = (f"mssql+pyodbc://{server}/{database}"
+    "?driver=ODBC+Driver+17+for+SQL+Server"
+    "&trusted_connection=yes")
+    engine = sqlalchemy.create_engine(connection_string)
+    df.to_sql(table_name, engine, if_exists="replace",index=False)
+
+# ======================================================================
+# Main
+# ======================================================================
 
 books_raw_df = load_csv(books_input_file_path)
 customers_raw_df = load_csv(customers_input_file_path)
@@ -38,8 +115,13 @@ customers_raw_df = load_csv(customers_input_file_path)
 customers_cleaned_df = clean_customer_data(customers_raw_df)
 books_cleaned_df = clean_books_data(books_raw_df)
 
-print(customers_cleaned_df)
-print(books_cleaned_df)
+books_enriched_df = enrich_books_data(books_cleaned_df)
 
-customers_cleaned_df.to_csv(customers_output_file_path)
-books_cleaned_df.to_csv(books_output_file_path)
+print(customers_cleaned_df)
+print(books_enriched_df)
+
+# customers_cleaned_df.to_csv(customers_output_file_path)
+# books_enriched_df.to_csv(books_output_file_path)
+
+write_to_sql(customers_cleaned_df, sql_server, "Library", "Customers")
+write_to_sql(books_enriched_df, sql_server, "Library", "Books")
