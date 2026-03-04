@@ -5,6 +5,7 @@
 import pandas as pd
 import sqlalchemy
 import pyodbc
+import argparse
 
 # ======================================================================
 # Define Constants
@@ -20,6 +21,17 @@ sql_server = "STUDENT02"
 # ======================================================================
 # Define Functions
 # ======================================================================
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description = "Library ETL Pipeline"
+    )
+    parser.add_argument(
+        "--write-sql",
+        action="store_true",
+        help = "Write cleaned data to SQL Server"
+    )
+    return parser.parse_args()
 
 def load_csv(file_path):
     """Loads csv into dataframe
@@ -87,7 +99,7 @@ def enrich_books_data(books_df):
         books_enriched: Book dataframe with added "Time on loan" column
     """
     books_enriched = books_df.copy()
-    books_enriched["Time On Loan"] = books_enriched["Book Returned"] - books_enriched["Book Checkout"]
+    books_enriched["Time On Loan"] = (books_enriched["Book Returned"] - books_enriched["Book Checkout"]).dt.days
     return books_enriched
 
 
@@ -109,19 +121,30 @@ def write_to_sql(df, server, database, table_name):
 # Main
 # ======================================================================
 
-books_raw_df = load_csv(books_input_file_path)
-customers_raw_df = load_csv(customers_input_file_path)
+def main():
+    args = parse_args()
 
-customers_cleaned_df = clean_customer_data(customers_raw_df)
-books_cleaned_df = clean_books_data(books_raw_df)
+    books_raw_df = load_csv(books_input_file_path)
+    books_cleaned_df = clean_books_data(books_raw_df)
+    books_enriched_df = enrich_books_data(books_cleaned_df)
+    
 
-books_enriched_df = enrich_books_data(books_cleaned_df)
+    customers_raw_df = load_csv(customers_input_file_path)
+    customers_cleaned_df = clean_customer_data(customers_raw_df)
+    
 
-print(customers_cleaned_df)
-print(books_enriched_df)
+    if args.write_sql:
+        write_to_sql(books_enriched_df, sql_server, "Library", "Books")
+        write_to_sql(customers_cleaned_df, sql_server, "Library", "Customers")
+    else:
+        print("Skipped write to SQL")
 
-# customers_cleaned_df.to_csv(customers_output_file_path)
-# books_enriched_df.to_csv(books_output_file_path)
+    # print(customers_cleaned_df)
+    # print(books_enriched_df)
 
-write_to_sql(customers_cleaned_df, sql_server, "Library", "Customers")
-write_to_sql(books_enriched_df, sql_server, "Library", "Books")
+    # customers_cleaned_df.to_csv(customers_output_file_path)
+    # books_enriched_df.to_csv(books_output_file_path)
+
+    
+if __name__ == "__main__":
+    main()
