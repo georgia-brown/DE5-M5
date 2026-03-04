@@ -15,6 +15,7 @@ books_input_file_path = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library Sys
 customers_input_file_path  = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library SystemCustomers.csv'
 books_output_file_path = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\books_cleaned"
 customers_output_file_path  = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\customers_cleaned"
+data_quality_metrics_output_path = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\data_metrics.csv"
 
 sql_server = "STUDENT02"
 
@@ -102,6 +103,31 @@ def enrich_books_data(books_df):
     books_enriched["Time On Loan"] = (books_enriched["Book Returned"] - books_enriched["Book Checkout"]).dt.days
     return books_enriched
 
+def write_data_metrics_to_csv(raw_df,cleaned_df, table_name, output_path):
+    count_rows_dropped = len(raw_df)-len(cleaned_df)
+
+    metrics = {
+        "Table": table_name,
+        "Raw Row Count": len(raw_df),
+        "Cleaned Row Count": len(cleaned_df),
+        "Rows Dropped": count_rows_dropped
+    }
+
+    # Count nulls per column in cleaned data
+    for col in cleaned_df.columns:
+        metrics[f"Null Count - {col}"] = cleaned_df[col].isna().sum()
+
+    metrics_df = pd.DataFrame([metrics])
+
+    # Append if file exists
+    try:
+        existing = pd.read_csv(output_path)
+        metrics_df = pd.concat([existing, metrics_df], ignore_index=True)
+    except FileNotFoundError:
+        pass
+
+    metrics_df.to_csv(output_path, index=False)
+
 
 def write_to_sql(df, server, database, table_name):
     """ Writes a dataframe to SQL Server table
@@ -127,17 +153,28 @@ def main():
     books_raw_df = load_csv(books_input_file_path)
     books_cleaned_df = clean_books_data(books_raw_df)
     books_enriched_df = enrich_books_data(books_cleaned_df)
-    
+
+    write_data_metrics_to_csv(raw_df=books_raw_df,
+                              cleaned_df= books_enriched_df, 
+                              table_name="Books", 
+                              output_path=data_quality_metrics_output_path
+                            )
 
     customers_raw_df = load_csv(customers_input_file_path)
     customers_cleaned_df = clean_customer_data(customers_raw_df)
     
+    write_data_metrics_to_csv(raw_df=customers_raw_df,
+                              cleaned_df= customers_cleaned_df, 
+                              table_name="Customers", 
+                              output_path=data_quality_metrics_output_path
+                            )
+    
 
-    if args.write_sql:
-        write_to_sql(books_enriched_df, sql_server, "Library", "Books")
-        write_to_sql(customers_cleaned_df, sql_server, "Library", "Customers")
-    else:
-        print("Skipped write to SQL")
+    # if args.write_sql:
+    #     write_to_sql(books_enriched_df, sql_server, "Library", "Books")
+    #     write_to_sql(customers_cleaned_df, sql_server, "Library", "Customers")
+    # else:
+    #     print("Skipped write to SQL")
 
     # print(customers_cleaned_df)
     # print(books_enriched_df)
