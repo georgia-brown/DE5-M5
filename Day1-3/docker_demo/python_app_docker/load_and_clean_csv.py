@@ -4,18 +4,19 @@
 
 import pandas as pd
 import sqlalchemy
-import pyodbc
+# import pyodbc
 import argparse
 
 # ======================================================================
 # Define Constants
 # ======================================================================
 
-books_input_file_path = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library Systembook.csv'
-customers_input_file_path  = 'C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\03_Library SystemCustomers.csv'
-books_output_file_path = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\books_cleaned"
-customers_output_file_path  = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\customers_cleaned"
-data_quality_metrics_output_path = "C:\\Users\\Admin\\Desktop\\DE5-M5\\data\\data_metrics.csv"
+# directory = "C:\\Users\\\Admin\\Desktop\\DE5-M5\\docker_demo\\python_app_docker"
+books_input_file_path = "data/03_Library Systembook.csv"
+customers_input_file_path  = "data/03_Library SystemCustomers.csv"
+books_output_file_path = "data/books_cleaned"
+customers_output_file_path  = "data/customers_cleaned"
+data_quality_metrics_output_path = "data/data_metrics.csv"
 
 sql_server = "STUDENT02"
 
@@ -168,6 +169,10 @@ def main():
                               table_name="Customers", 
                               output_path=data_quality_metrics_output_path
                             )
+    
+    print(books_enriched_df.head(5))
+    print(customers_cleaned_df.head(5))
+    print("Data Cleaning Done")
     
 
     # if args.write_sql:

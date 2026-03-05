@@ -1,3 +1,0 @@
-Table,Raw Row Count,Cleaned Row Count,Rows Dropped,Null Count - Id,Null Count - Books,Null Count - Book Checkout,Null Count - Book Returned,Null Count - Days Allowed To Borrow,Null Count - Customer Id,Null Count - Time On Loan,Null Count - Customer Name
-Books,114,21,93,0.0,1.0,1.0,0.0,0.0,1,1.0,
-Customers,9,8,1,,,,,,0,,0.0
